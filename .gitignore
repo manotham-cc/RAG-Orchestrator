@@ -1,0 +1,47 @@
+# =====================
+# Python
+# =====================
+__pycache__/
+*.py[cod]
+*$py.class
+
+build/
+dist/
+wheels/
+*.egg-info/
+.eggs/
+
+# Virtual environments
+.venv/
+venv/
+env/
+.env
+
+# =====================
+# Databases / Local storage
+# =====================
+qdrant_storage/
+*.sqlite3
+
+# =====================
+# Frontend (Node / Vite / React)
+# =====================
+frontend/node_modules/
+frontend/dist/
+frontend/.env
+frontend/.env.local
+frontend/.env.*.local
+
+# =====================
+# OS / Editor
+# =====================
+.DS_Store
+Thumbs.db
+
+.vscode/
+.idea/
+
+# =====================
+# Logs
+# =====================
+*.log

@@ -1,0 +1,28 @@
+# --extra-index-url https://download.pytorch.org/whl/cpu
+
+# Numerical
+numpy<2.0.0
+
+# OCR & PDF Processing
+docling
+
+# HuggingFace stack
+transformers
+sentence-transformers
+tokenizers
+huggingface-hub
+
+# API / service
+fastapi[standard]
+uvicorn[standard]
+python-multipart
+
+# Vector Database
+qdrant-client
+
+# Text Splitting
+langchain-text-splitters
+
+# Utilities
+tqdm
+python-dotenv

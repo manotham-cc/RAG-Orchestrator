@@ -8,18 +8,22 @@ import {
   MenuItem,
   Box,
   Alert,
-  LinearProgress,
   Paper,
-  Grid, // Keeping Grid for layout as it is stable enough in MUI v5/v6 for basic layouts
   Stack,
   TextField,
+  Stepper,
+  Step,
+  StepLabel,
+  CircularProgress,
 } from '@mui/material';
-import { CloudUpload as CloudUploadIcon, InsertDriveFile as FileIcon } from '@mui/icons-material';
+import { CloudUpload as CloudUploadIcon, InsertDriveFile as FileIcon, CheckCircle as CheckCircleIcon } from '@mui/icons-material';
 import api from '../api';
 
 interface Collection {
   name: string;
 }
+
+const steps = ['Parsing Document', 'Chunking Text', 'Embedding Vectors', 'Indexing Data'];
 
 const Upload: React.FC = () => {
   const [collections, setCollections] = useState<Collection[]>([]);
@@ -27,6 +31,8 @@ const Upload: React.FC = () => {
   const [docType, setDocType] = useState('');
   const [file, setFile] = useState<File | null>(null);
   const [uploading, setUploading] = useState(false);
+  const [activeStep, setActiveStep] = useState(0);
+  const [progressMessage, setProgressMessage] = useState('');
   const [message, setMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
 
   useEffect(() => {
@@ -54,6 +60,8 @@ const Upload: React.FC = () => {
     }
 
     setUploading(true);
+    setActiveStep(0);
+    setProgressMessage('Starting upload...');
     setMessage(null);
 
     const formData = new FormData();
@@ -64,19 +72,62 @@ const Upload: React.FC = () => {
     }
 
     try {
-      await api.post('/documents/process', formData, {
-        headers: {
-          'Content-Type': 'multipart/form-data',
-        },
+      // Use fetch directly to handle streaming response
+      const response = await fetch('http://localhost:8000/api/v1/documents/process', {
+        method: 'POST',
+        body: formData,
       });
-      setMessage({ type: 'success', text: `Successfully processed ${file.name}` });
-      setFile(null);
-      setDocType('');
+
+      if (!response.ok) {
+         throw new Error(`Upload failed with status: ${response.status}`);
+      }
+
+      const reader = response.body?.getReader();
+      const decoder = new TextDecoder();
+
+      if (reader) {
+        let buffer = '';
+        while (true) {
+          const { done, value } = await reader.read();
+          if (done) break;
+
+          buffer += decoder.decode(value, { stream: true });
+          const lines = buffer.split('\n');
+          
+          // Process all complete lines
+          buffer = lines.pop() || ''; // Keep the incomplete line in buffer
+
+          for (const line of lines) {
+            if (!line.trim()) continue;
+            try {
+              const data = JSON.parse(line);
+              
+              if (data.status === 'progress') {
+                setProgressMessage(data.message);
+                if (data.step === 'parsing') setActiveStep(0);
+                else if (data.step === 'chunking') setActiveStep(1);
+                else if (data.step === 'embedding') setActiveStep(2);
+                else if (data.step === 'upserting') setActiveStep(3);
+              } else if (data.status === 'success') {
+                setActiveStep(4);
+                setMessage({ type: 'success', text: `Successfully processed ${data.filename}` });
+                setFile(null);
+                setDocType('');
+              } else if (data.status === 'error') {
+                 throw new Error(data.message);
+              }
+            } catch (e) {
+              console.error('Error parsing JSON chunk', e);
+            }
+          }
+        }
+      }
+
     } catch (err: any) {
       console.error('Upload error:', err);
       setMessage({
         type: 'error',
-        text: err.response?.data?.detail || 'Failed to upload document.',
+        text: err.message || 'Failed to upload document.',
       });
     } finally {
       setUploading(false);
@@ -122,6 +173,7 @@ const Upload: React.FC = () => {
                 value={docType}
                 onChange={(e) => setDocType(e.target.value)}
                 helperText="Used for filtering search results."
+                sx={{ mt: 3 }}
             />
           </Box>
           <Box sx={{ mt: 4 }}>
@@ -162,6 +214,7 @@ const Upload: React.FC = () => {
                     startIcon={<CloudUploadIcon />}
                     size="large"
                     sx={{ mt: 2, px: 4, py: 2 }}
+                    disabled={uploading}
                 >
                     Choose File
                 </Button>
@@ -175,9 +228,18 @@ const Upload: React.FC = () => {
             )}
 
             {uploading && (
-                <Box sx={{ width: '100%', mt: 3 }}>
-                    <LinearProgress />
-                    <Typography variant="caption" sx={{ display: 'block', textAlign: 'center', mt: 1 }}>Processing document...</Typography>
+                <Box sx={{ width: '100%', mt: 4 }}>
+                    <Stepper activeStep={activeStep} alternativeLabel>
+                        {steps.map((label) => (
+                        <Step key={label}>
+                            <StepLabel>{label}</StepLabel>
+                        </Step>
+                        ))}
+                    </Stepper>
+                    <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'center', mt: 2, gap: 2 }}>
+                        <CircularProgress size={20} />
+                        <Typography variant="body2" color="primary">{progressMessage}</Typography>
+                    </Box>
                 </Box>
             )}
              

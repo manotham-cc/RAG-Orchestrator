@@ -1,5 +1,6 @@
 import os
 from fastapi import APIRouter, UploadFile, File, Form, HTTPException, Depends
+from fastapi.responses import StreamingResponse
 from typing import List, Optional, Dict, Any
 
 from app.api.schemas.models import CollectionCreate, SearchRequest, FilterSearchRequest
@@ -55,10 +56,13 @@ async def process_document(
     # Fallback logic for doc_type if not provided
     final_doc_type = doc_type or (os.path.splitext(file.filename)[1][1:].upper() or "UNKNOWN")
     
-    return await service.process_document(
-        file=file,
-        collection_name=collection_name,
-        doc_type=final_doc_type
+    return StreamingResponse(
+        service.process_document(
+            file=file,
+            collection_name=collection_name,
+            doc_type=final_doc_type
+        ),
+        media_type="application/x-ndjson"
     )
 
 @router.post("/search")

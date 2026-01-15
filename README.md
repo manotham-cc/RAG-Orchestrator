@@ -44,7 +44,8 @@ Start the Qdrant vector database:
 ```bash
 docker-compose up -d
 ```
-
+set up api key :
+http://localhost:6333/dashborad
 ### 3. Backend Setup
 1.  Create a `.env` file in the root directory:
     ```env
